@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import VoiceBar from '@/components/VoiceBar';
 import FieldGrid from '@/components/FieldGrid';
-import { parse } from '@/lib/voiceParser';
+import { parseDetailed } from '@/lib/voiceParser';
 import { patternKey } from '@/lib/patternKey';
 import { api, filledSummary, downloadCsv, fmtDate, today, daysAgo, speak } from '@/lib/client';
 
@@ -62,12 +62,12 @@ export default function MouldReportingApp({ isAdmin }) {
   useEffect(() => { load(); }, [load]);
 
   async function onTranscript(text) {
-    const values = parse(text, IDS);
+    const { values, corrections } = parseDetailed(text, IDS);
     if (!Object.keys(values).length) return "Sorry, I didn't catch any Mould Reporting field names.";
     setForm(f => ({ ...f, ...values }));
     setFlash(Object.keys(values));
     setFlashKey(k => k + 1);
-    let said = filledSummary(values);
+    let said = filledSummary(values, corrections);
     if (values.patternName) {
       const d = await findPattern(values.patternName);
       if (d.match) {

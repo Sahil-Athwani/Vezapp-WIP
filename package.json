@@ -9,6 +9,7 @@
     "db:migrate": "node --env-file=.env scripts/migrate.mjs"
   },
   "dependencies": {
+    "aws-ssl-profiles": "^1.1.2",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.12",
     "lucide-react": "^1.48.0",

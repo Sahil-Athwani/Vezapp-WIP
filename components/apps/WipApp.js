@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import VoiceBar from '@/components/VoiceBar';
 import FieldGrid from '@/components/FieldGrid';
-import { parse } from '@/lib/voiceParser';
+import { parseDetailed } from '@/lib/voiceParser';
 import { api, filledSummary, downloadCsv, fmtDate, today, daysAgo } from '@/lib/client';
 
 const IDS = ['partName', 'knockoutStock', 'shotBlastStock', 'knockoutRej', 'shotBlastRej'];
@@ -36,12 +36,12 @@ export default function WipApp({ isAdmin }) {
   }, []);
 
   async function onTranscript(text) {
-    const values = parse(text, IDS);
+    const { values, corrections } = parseDetailed(text, IDS);
     if (!Object.keys(values).length) return "Sorry, I didn't catch any WIP field names.";
     setForm(f => ({ ...f, ...values }));
     setFlash(Object.keys(values));
     setFlashKey(k => k + 1);
-    return filledSummary(values);
+    return filledSummary(values, corrections);
   }
 
   async function save() {

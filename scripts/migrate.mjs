@@ -4,6 +4,7 @@
 //   npm run db:migrate
 import { readFile } from 'node:fs/promises';
 import mysql from 'mysql2/promise';
+import { sslOptions } from '../lib/dbSsl.mjs';
 
 const missing = ['VOICE_DB_HOST', 'VOICE_DB_USER', 'VOICE_DB_NAME'].filter(k => !process.env[k]);
 if (missing.length) {
@@ -37,9 +38,7 @@ const conn = await mysql.createConnection({
   user: process.env.VOICE_DB_USER,
   password: process.env.VOICE_DB_PASSWORD,
   database: process.env.VOICE_DB_NAME,
-  ssl: process.env.VOICE_DB_SSL === 'true'
-    ? { rejectUnauthorized: process.env.VOICE_DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
-    : undefined,
+  ssl: sslOptions(),
 });
 
 async function columnsOf(table) {
