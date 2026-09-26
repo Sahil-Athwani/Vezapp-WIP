@@ -9,13 +9,15 @@ const ERRORS = {
   'audio-capture': 'No microphone found.',
   network: 'Network error — voice recognition needs an internet connection.',
 };
-const MAX_SECONDS = 90;
+const BROWSER = { id: 'browser', label: 'Browser (free)' };
 
 // Mic + transcript + typed fallback. onTranscript(text) returns the message to show and read aloud.
-// Two speech engines: Wispr Flow (records audio, transcribed on our server) or the browser's built-in recognition.
+// Speech engines: server engines (Google Cloud / Wispr Flow — audio is recorded and transcribed on our server,
+// primed with the field names) or the browser's built-in recognition.
 export default function VoiceBar({ onTranscript, example }) {
-  const [engines, setEngines] = useState(null); // { wispr, browser } once detected
+  const [engines, setEngines] = useState(null); // [{ id, label, maxSeconds? }] once detected
   const [engine, setEngine] = useState(null);
+  const current = engines?.find(e => e.id === engine);
   const [listening, setListening] = useState(false);
   const [working, setWorking] = useState(false);
   const [status, setStatus] = useState('Tap the mic and speak');
@@ -41,11 +43,13 @@ export default function VoiceBar({ onTranscript, example }) {
     } catch {}
     if ('speechSynthesis' in window) speechSynthesis.getVoices();
     api('/api/transcribe')
-      .then(d => d.wispr && recording)
-      .catch(() => false)
-      .then(wispr => {
-        setEngines({ wispr, browser });
-        setEngine(saved === 'browser' && browser ? 'browser' : wispr ? 'wispr' : browser ? 'browser' : null);
+      .then(d => (recording ? d.engines : []))
+      .catch(() => [])
+      .then(server => {
+        const list = [...server, ...(browser ? [BROWSER] : [])];
+        setEngines(list);
+        // remembered choice if still available, else the first (most accurate) one
+        setEngine((list.find(e => e.id === saved) || list[0])?.id ?? null);
       });
     return () => {
       recRef.current?.abort();
@@ -76,8 +80,8 @@ export default function VoiceBar({ onTranscript, example }) {
     }
   }
 
-  // ---- Wispr Flow: record, then send the audio for transcription ----
-  async function startWispr() {
+  // ---- Server engines: record, then send the audio for transcription ----
+  async function startServer() {
     try {
       recorderRef.current = await startRecording();
     } catch (e) {
@@ -87,14 +91,15 @@ export default function VoiceBar({ onTranscript, example }) {
     setFinalText('');
     setListening(true);
     setStatus('Listening… tap again when done');
+    const max = current.maxSeconds;
     timerRef.current = setInterval(() => {
       const s = Math.floor(recorderRef.current?.seconds() || 0);
-      if (s >= MAX_SECONDS) stopWispr();
+      if (s >= max) stopServer();
       else setStatus(`Listening… ${s}s — tap again when done`);
     }, 500);
   }
 
-  async function stopWispr() {
+  async function stopServer() {
     clearInterval(timerRef.current);
     const recorder = recorderRef.current;
     recorderRef.current = null;
@@ -106,10 +111,10 @@ export default function VoiceBar({ onTranscript, example }) {
       return;
     }
     setWorking(true);
-    setStatus('Transcribing with Wispr Flow…');
+    setStatus(`Transcribing with ${current.label}…`);
     try {
       const audio = await recorder.stop();
-      const { text } = await api('/api/transcribe', { method: 'POST', body: { audio } });
+      const { text } = await api('/api/transcribe', { method: 'POST', body: { audio, engine } });
       if (!text.trim()) { setStatus('No speech heard. Tap the mic and try again.'); return; }
       setFinalText(text);
       await handle(text);
@@ -156,7 +161,7 @@ export default function VoiceBar({ onTranscript, example }) {
   function toggle() {
     if (working) return;
     if ('speechSynthesis' in window) speechSynthesis.cancel();
-    if (engine === 'wispr') listening ? stopWispr() : startWispr();
+    if (engine !== 'browser') listening ? stopServer() : startServer();
     else if (listening) recRef.current?.stop();
     else startBrowser();
   }
@@ -181,7 +186,7 @@ export default function VoiceBar({ onTranscript, example }) {
         <div className="voice-status">
           <div className="status">
             {loading ? 'Getting the microphone ready…'
-              : noEngine ? 'Voice input needs Google Chrome or Microsoft Edge, or Wispr Flow set up — you can type below.'
+              : noEngine ? 'Voice input needs Google Chrome or Microsoft Edge, or a speech engine set up on the server — you can type below.'
               : status}
           </div>
           <div className="transcript" aria-live="polite">
@@ -190,11 +195,10 @@ export default function VoiceBar({ onTranscript, example }) {
         </div>
       </div>
       <div className="options">
-        {engines?.wispr && engines?.browser && (
+        {engines?.length > 1 && (
           <label>Voice engine{' '}
             <select value={engine || ''} onChange={chooseEngine} disabled={listening || working}>
-              <option value="wispr">Wispr Flow</option>
-              <option value="browser">Browser (Google)</option>
+              {engines.map(e => <option key={e.id} value={e.id}>{e.label}</option>)}
             </select>
           </label>
         )}
