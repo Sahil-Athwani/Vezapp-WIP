@@ -1,5 +1,5 @@
 import { handler, requireUser, readJson, HttpError } from '@/lib/api';
-import { query } from '@/lib/db';
+import { companyNames } from '@/lib/vocab';
 
 // Server-side speech-to-text engines. The browser records 16 kHz mono WAV and posts it here, so API keys
 // never reach the browser. Each engine is told which words to expect: the field names and the company's
@@ -104,13 +104,5 @@ export const POST = handler(async req => {
     throw new HttpError(413, `Recording is too long. Keep it under ${engine.maxSeconds} seconds.`);
   }
 
-  // The company's own pattern and part names help the engine hear codes like "PT 102" correctly.
-  const names = (await query(
-    `SELECT PatternName AS n FROM PatternMaster WHERE CompanyID = ?
-      UNION SELECT CustomerPartName FROM PatternMaster WHERE CompanyID = ? AND CustomerPartName IS NOT NULL
-      LIMIT 400`,
-    [user.cid, user.cid],
-  ).catch(() => [])).map(r => r.n).filter(n => n && n.length <= 100);
-
-  return Response.json({ text: await engine.transcribe(audio, names) });
+  return Response.json({ text: await engine.transcribe(audio, await companyNames(user.cid)) });
 });

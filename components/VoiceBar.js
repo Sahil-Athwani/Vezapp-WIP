@@ -69,7 +69,7 @@ export default function VoiceBar({ onTranscript, example }) {
   }
 
   async function handle(text) {
-    setStatus('Working…');
+    setStatus('Understanding…');
     try {
       const msg = await handlerRef.current(text);
       setStatus(msg || 'Done');

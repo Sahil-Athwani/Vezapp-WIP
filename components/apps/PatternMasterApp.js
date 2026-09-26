@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import VoiceBar from '@/components/VoiceBar';
 import FieldGrid from '@/components/FieldGrid';
-import { parseDetailed } from '@/lib/voiceParser';
+import { understand } from '@/lib/understand';
 import { api, filledSummary, downloadCsv, fmtDate } from '@/lib/client';
 
 const IDS = ['patternName', 'mouldingLine', 'mouldingProcess', 'customerPartName', 'grade', 'subGrade', 'noOfCavities'];
@@ -33,12 +33,12 @@ export default function PatternMasterApp({ isAdmin }) {
   }, [load]);
 
   async function onTranscript(text) {
-    const { values, corrections } = parseDetailed(text, IDS);
-    if (!Object.keys(values).length) return "Sorry, I didn't catch any Pattern Master field names.";
+    const { values, corrections, unclear } = await understand(text, IDS);
+    if (!Object.keys(values).length) return filledSummary(values, corrections, unclear);
     setForm(f => ({ ...f, ...values }));
     setFlash(Object.keys(values));
     setFlashKey(k => k + 1);
-    return filledSummary(values, corrections);
+    return filledSummary(values, corrections, unclear);
   }
 
   function reset() {

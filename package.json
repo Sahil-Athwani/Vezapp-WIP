@@ -9,6 +9,7 @@
     "db:migrate": "node --env-file=.env scripts/migrate.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "aws-ssl-profiles": "^1.1.2",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.12",
